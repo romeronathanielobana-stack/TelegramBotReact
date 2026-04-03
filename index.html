@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TG AutoReact — Telegram Reaction Bot</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #080c12;
+      --surface:   #0d1420;
+      --border:    #1a2535;
+      --accent:    #00d4ff;
+      --accent2:   #7c3aed;
+      --success:   #10b981;
+      --danger:    #ef4444;
+      --warn:      #f59e0b;
+      --text:      #e2e8f0;
+      --muted:     #64748b;
+      --glow:      0 0 20px rgba(0,212,255,.25);
+      --glow2:     0 0 20px rgba(124,58,237,.3);
+      --radius:    12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── BACKGROUND GRID ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(0,212,255,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,255,.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── ORBS ── */
+    .orb {
+      position: fixed; border-radius: 50%; filter: blur(90px);
+      pointer-events: none; z-index: 0; opacity: .35;
+    }
+    .orb1 { width: 500px; height: 500px; background: var(--accent2); top: -150px; right: -100px; }
+    .orb2 { width: 400px; height: 400px; background: var(--accent); bottom: -100px; left: -100px; }
+
+    /* ── LAYOUT ── */
+    .wrapper { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+    /* ── HEADER ── */
+    header {
+      display: flex; align-items: center; gap: 1rem;
+      padding: 2rem 0 3rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2.5rem;
+    }
+    .logo-icon {
+      width: 52px; height: 52px; border-radius: 14px;
+      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.6rem; box-shadow: var(--glow);
+      flex-shrink: 0;
+    }
+    .logo-text h1 { font-size: 1.7rem; font-weight: 800; letter-spacing: -.02em; }
+    .logo-text h1 span { color: var(--accent); }
+    .logo-text p { font-size: .8rem; color: var(--muted); font-family: 'Space Mono', monospace; margin-top: 2px; }
+
+    .badge {
+      margin-left: auto;
+      background: rgba(0,212,255,.1);
+      border: 1px solid rgba(0,212,255,.25);
+      color: var(--accent);
+      font-size: .72rem;
+      font-family: 'Space Mono', monospace;
+      padding: .35rem .75rem;
+      border-radius: 999px;
+      display: flex; align-items: center; gap: .4rem;
+    }
+    .badge::before { content: ''; width: 7px; height: 7px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    /* ── SECTIONS ── */
+    .section { margin-bottom: 2rem; }
+    .section-title {
+      font-size: .72rem; font-family: 'Space Mono', monospace;
+      color: var(--accent); letter-spacing: .15em; text-transform: uppercase;
+      margin-bottom: 1rem; display: flex; align-items: center; gap: .6rem;
+    }
+    .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      transition: border-color .2s;
+    }
+    .card:hover { border-color: rgba(0,212,255,.2); }
+
+    /* ── BOT TOKEN LIST ── */
+    #tokenList { display: flex; flex-direction: column; gap: .75rem; margin-bottom: 1rem; }
+
+    .token-row {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: .6rem;
+      align-items: center;
+      background: rgba(255,255,255,.03);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .75rem 1rem;
+      animation: fadeIn .3s ease;
+    }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+
+    .token-row .token-label {
+      font-size: .72rem; font-family: 'Space Mono', monospace; color: var(--muted);
+      grid-column: 1/-1; margin-bottom: .25rem;
+    }
+    .token-row input {
+      background: transparent; border: none; outline: none;
+      color: var(--text); font-family: 'Space Mono', monospace; font-size: .85rem;
+      width: 100%;
+    }
+    .token-row input::placeholder { color: var(--muted); }
+
+    .status-dot {
+      width: 9px; height: 9px; border-radius: 50%;
+      background: var(--muted); flex-shrink: 0; cursor: pointer;
+      transition: background .3s, box-shadow .3s;
+    }
+    .status-dot.ok    { background: var(--success); box-shadow: 0 0 8px var(--success); }
+    .status-dot.error { background: var(--danger);  box-shadow: 0 0 8px var(--danger); }
+    .status-dot.checking { background: var(--warn); animation: pulse 1s infinite; }
+
+    .btn-icon {
+      background: none; border: none; cursor: pointer; padding: .25rem;
+      color: var(--muted); transition: color .2s; font-size: 1rem; line-height: 1;
+    }
+    .btn-icon:hover { color: var(--danger); }
+
+    /* ── REACTION PICKER ── */
+    .emoji-grid {
+      display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem;
+    }
+    .emoji-btn {
+      width: 42px; height: 42px; border-radius: 8px;
+      background: rgba(255,255,255,.04);
+      border: 1.5px solid var(--border);
+      cursor: pointer; font-size: 1.2rem;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .15s; user-select: none;
+    }
+    .emoji-btn:hover { border-color: var(--accent); transform: scale(1.15); background: rgba(0,212,255,.08); }
+    .emoji-btn.selected {
+      border-color: var(--accent);
+      background: rgba(0,212,255,.15);
+      box-shadow: 0 0 10px rgba(0,212,255,.3);
+    }
+
+    /* ── FORM FIELDS ── */
+    .field { margin-bottom: 1.25rem; }
+    label { display: block; font-size: .8rem; color: var(--muted); margin-bottom: .4rem; font-family: 'Space Mono', monospace; }
+    input[type="text"], input[type="number"], select {
+      width: 100%; background: rgba(255,255,255,.04);
+      border: 1px solid var(--border);
+      border-radius: 8px; padding: .7rem 1rem;
+      color: var(--text); font-family: 'Space Mono', monospace; font-size: .9rem;
+      outline: none; transition: border-color .2s, box-shadow .2s;
+    }
+    input:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(0,212,255,.1);
+    }
+    select option { background: var(--surface); }
+
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+    /* ── TOGGLE ── */
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; }
+    .toggle-row span { font-size: .9rem; }
+    .toggle {
+      position: relative; width: 46px; height: 26px;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; inset: 0; background: rgba(255,255,255,.1);
+      border-radius: 999px; cursor: pointer; transition: background .3s;
+    }
+    .slider::before {
+      content: ''; position: absolute;
+      width: 20px; height: 20px; background: #fff;
+      border-radius: 50%; left: 3px; top: 3px;
+      transition: transform .3s;
+    }
+    .toggle input:checked + .slider { background: var(--accent); }
+    .toggle input:checked + .slider::before { transform: translateX(20px); }
+
+    /* ── BUTTONS ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: .5rem;
+      font-family: 'Space Mono', monospace; font-size: .85rem;
+      padding: .75rem 1.5rem; border-radius: 8px;
+      border: none; cursor: pointer; transition: all .2s; font-weight: 700;
+      letter-spacing: .02em;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      color: #fff;
+      box-shadow: 0 4px 24px rgba(0,212,255,.2);
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,212,255,.35); }
+    .btn-primary:active { transform: none; }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+    .btn-outline {
+      background: transparent; color: var(--accent);
+      border: 1px solid rgba(0,212,255,.35);
+    }
+    .btn-outline:hover { background: rgba(0,212,255,.08); border-color: var(--accent); }
+
+    .btn-stop {
+      background: rgba(239,68,68,.15); color: var(--danger);
+      border: 1px solid rgba(239,68,68,.35);
+    }
+    .btn-stop:hover { background: rgba(239,68,68,.25); }
+
+    .btn-row { display: flex; gap: .75rem; flex-wrap: wrap; margin-top: 1.5rem; }
+
+    /* ── LOG CONSOLE ── */
+    #logBox {
+      background: #05080d;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      height: 240px;
+      overflow-y: auto;
+      font-family: 'Space Mono', monospace;
+      font-size: .78rem;
+      line-height: 1.7;
+    }
+    #logBox::-webkit-scrollbar { width: 4px; }
+    #logBox::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    .log-line { display: flex; gap: .75rem; }
+    .log-time { color: var(--muted); flex-shrink: 0; }
+    .log-info  { color: var(--accent); }
+    .log-ok    { color: var(--success); }
+    .log-error { color: var(--danger); }
+    .log-warn  { color: var(--warn); }
+
+    /* ── STATS ── */
+    .stats-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.25rem 1.5rem;
+      text-align: center;
+    }
+    .stat-num { font-size: 2rem; font-weight: 800; line-height: 1; }
+    .stat-label { font-size: .72rem; color: var(--muted); font-family: 'Space Mono', monospace; margin-top: .35rem; }
+    .c-cyan { color: var(--accent); }
+    .c-purple { color: var(--accent2); }
+    .c-green { color: var(--success); }
+
+    /* ── ADD TOKEN BTN ── */
+    #addTokenBtn {
+      width: 100%; border: 1.5px dashed var(--border);
+      background: transparent; color: var(--muted);
+      border-radius: 8px; padding: .65rem;
+      font-family: 'Space Mono', monospace; font-size: .82rem;
+      cursor: pointer; transition: all .2s;
+    }
+    #addTokenBtn:hover { border-color: var(--accent); color: var(--accent); background: rgba(0,212,255,.04); }
+
+    /* ── PROGRESS ── */
+    .progress-bar {
+      height: 4px; background: var(--border); border-radius: 999px;
+      overflow: hidden; margin-top: 1rem;
+    }
+    .progress-fill {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, var(--accent2), var(--accent));
+      transition: width .4s ease;
+      border-radius: 999px;
+    }
+
+    /* ── VERCEL NOTE ── */
+    .vercel-note {
+      display: flex; align-items: center; gap: .75rem;
+      background: rgba(124,58,237,.08); border: 1px solid rgba(124,58,237,.2);
+      border-radius: var(--radius); padding: 1rem 1.25rem; margin-top: 1rem;
+      font-size: .82rem; color: #a78bfa;
+    }
+    .vercel-note .icon { font-size: 1.2rem; flex-shrink: 0; }
+
+    @media(max-width: 600px) {
+      .row2 { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: 1fr; }
+      header { flex-wrap: wrap; }
+      .badge { margin-left: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="orb orb1"></div>
+  <div class="orb orb2"></div>
+
+  <div class="wrapper">
+
+    <!-- HEADER -->
+    <header>
+      <div class="logo-icon">⚡</div>
+      <div class="logo-text">
+        <h1>TG <span>AutoReact</span></h1>
+        <p>// telegram reaction bot dashboard</p>
+      </div>
+      <div class="badge">LIVE</div>
+    </header>
+
+    <!-- STATS -->
+    <div class="section">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-num c-cyan" id="statBots">0</div>
+          <div class="stat-label">ACTIVE BOTS</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num c-purple" id="statReactions">0</div>
+          <div class="stat-label">REACTIONS SENT</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num c-green" id="statMessages">0</div>
+          <div class="stat-label">MESSAGES SEEN</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOT TOKENS -->
+    <div class="section">
+      <div class="section-title">Bot Tokens</div>
+      <div class="card">
+        <div id="tokenList"></div>
+        <button id="addTokenBtn" onclick="addToken()">＋ Add Another Bot Token</button>
+
+        <div class="vercel-note">
+          <span class="icon">▲</span>
+          <span>Tokens are stored in your browser session. For Vercel deployment, add tokens as <strong>Environment Variables</strong> in your project settings — they are never logged.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- REACTION SETTINGS -->
+    <div class="section">
+      <div class="section-title">Reaction Settings</div>
+      <div class="card">
+        <label style="margin-bottom:.6rem; display:block;">Select Reactions to Send</label>
+        <div class="emoji-grid" id="emojiGrid"></div>
+
+        <div style="margin-top:1.5rem;" class="row2">
+          <div class="field">
+            <label>Channel / Group Username</label>
+            <input type="text" id="chatId" placeholder="@channelname or -100xxxxx" />
+          </div>
+          <div class="field">
+            <label>Reaction Mode</label>
+            <select id="reactionMode">
+              <option value="random">Random from selected</option>
+              <option value="all">All selected at once</option>
+              <option value="first">First selected only</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <label>Delay Between Reactions (ms)</label>
+            <input type="number" id="delay" value="1200" min="500" max="30000" />
+          </div>
+          <div class="field">
+            <label>Polling Interval (seconds)</label>
+            <input type="number" id="pollInterval" value="5" min="2" max="60" />
+          </div>
+        </div>
+
+        <div class="toggle-row">
+          <span>React to all new messages automatically</span>
+          <label class="toggle">
+            <input type="checkbox" id="autoToggle" checked />
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTROLS -->
+    <div class="section">
+      <div class="section-title">Controls</div>
+      <div class="card">
+        <div class="btn-row">
+          <button class="btn btn-primary" id="startBtn" onclick="startBot()">▶ Start Bot</button>
+          <button class="btn btn-stop" id="stopBtn" onclick="stopBot()" disabled>■ Stop</button>
+          <button class="btn btn-outline" onclick="testTokens()">⟳ Validate Tokens</button>
+          <button class="btn btn-outline" onclick="clearLog()">✕ Clear Log</button>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      </div>
+    </div>
+
+    <!-- LOG -->
+    <div class="section">
+      <div class="section-title">Live Console</div>
+      <div id="logBox"><div class="log-line"><span class="log-time">00:00:00</span><span class="log-info">// System ready. Configure tokens and press Start Bot.</span></div></div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
