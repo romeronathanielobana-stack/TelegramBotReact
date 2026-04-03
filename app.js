@@ -167,19 +167,43 @@ async function checkAndJoinChannel(chatId, validToks) {
   log('Checking bot membership in channel...', 'info');
   let allJoined = true;
 
+  // Normalise: username must have leading @; numeric IDs stay as-is
+  const isNumeric = /^-?\d+$/.test(chatId);
+  const normChat  = isNumeric ? chatId : (chatId.startsWith('@') ? chatId : '@' + chatId);
+
+  // Step 1: resolve to numeric ID via getChat.
+  // getChatMember returns 400 when passed a @username and the bot isn't a member yet.
+  let numericChatId = isNumeric ? chatId : null;
+  if (!numericChatId) {
+    try {
+      const chatRes = await callApi(validToks[0].token, 'getChat', { chat_id: normChat });
+      if (chatRes.ok) {
+        numericChatId = String(chatRes.result.id);
+        log(`Resolved "${normChat}" → chat ID ${numericChatId}`, 'info');
+      } else {
+        log(`Could not resolve chat "${normChat}": ${chatRes.description}`, 'error');
+        return false;
+      }
+    } catch (e) {
+      log(`Chat resolution failed: ${e.message}`, 'error');
+      return false;
+    }
+  }
+
   for (const tok of validToks) {
     try {
-      // First, check if the bot is already a member
+      // Get this bot's own user ID
       const meRes = await callApi(tok.token, 'getMe', {});
       if (!meRes.ok) continue;
       const botId = meRes.result.id;
 
+      // getChatMember needs the numeric chat ID (not @username)
       const memberRes = await callApi(tok.token, 'getChatMember', {
-        chat_id: chatId,
+        chat_id: numericChatId,
         user_id: botId,
       });
 
-      const status = memberRes?.result?.status;
+      const status   = memberRes?.result?.status;
       const isActive = ['creator', 'administrator', 'member'].includes(status);
 
       if (isActive) {
@@ -187,9 +211,9 @@ async function checkAndJoinChannel(chatId, validToks) {
         continue;
       }
 
-      // Not a member — try to join (works for public channels/groups)
-      log(`${tok.name} is not in the channel. Attempting to join...`, 'warn');
-      const joinRes = await callApi(tok.token, 'joinChat', { chat_id: chatId });
+      // Not a member — try to join using @username (joinChat needs username for public chats)
+      log(`${tok.name} not in channel (status: ${status || 'left/unknown'}). Joining...`, 'warn');
+      const joinRes = await callApi(tok.token, 'joinChat', { chat_id: normChat });
 
       if (joinRes.ok) {
         log(`✓ ${tok.name} successfully joined the channel!`, 'ok');
@@ -197,7 +221,7 @@ async function checkAndJoinChannel(chatId, validToks) {
         allJoined = false;
         log(
           `✗ ${tok.name} could not auto-join: ${joinRes.description}. ` +
-          `For private channels, you must manually add the bot as an admin.`,
+          `For private channels, add the bot manually as an admin.`,
           'error'
         );
       }
