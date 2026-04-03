@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TG AutoReact — Telegram Reaction Bot</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #080c12;
+      --surface: #0d1420;
+      --border:  #1a2535;
+      --accent:  #00d4ff;
+      --accent2: #7c3aed;
+      --success: #10b981;
+      --danger:  #ef4444;
+      --warn:    #f59e0b;
+      --text:    #e2e8f0;
+      --muted:   #64748b;
+      --glow:    0 0 20px rgba(0,212,255,.25);
+      --radius:  12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(0,212,255,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,255,.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none; z-index: 0;
+    }
+
+    .orb { position: fixed; border-radius: 50%; filter: blur(90px); pointer-events: none; z-index: 0; opacity: .35; }
+    .orb1 { width: 500px; height: 500px; background: var(--accent2); top: -150px; right: -100px; }
+    .orb2 { width: 400px; height: 400px; background: var(--accent); bottom: -100px; left: -100px; }
+
+    /* ── AUTH SCREEN ── */
+    #authScreen {
+      position: fixed; inset: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: center;
+      padding: 1.5rem;
+    }
+
+    .auth-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2.5rem;
+      width: 100%; max-width: 420px;
+      position: relative; z-index: 1;
+      box-shadow: 0 25px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(0,212,255,.05);
+    }
+
+    .auth-logo {
+      display: flex; align-items: center; gap: .9rem; margin-bottom: 2rem;
+    }
+    .auth-logo-icon {
+      width: 46px; height: 46px; border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem; box-shadow: var(--glow); flex-shrink: 0;
+    }
+    .auth-logo h1 { font-size: 1.4rem; font-weight: 800; }
+    .auth-logo h1 span { color: var(--accent); }
+    .auth-logo p { font-size: .75rem; color: var(--muted); font-family: 'Space Mono', monospace; }
+
+    .auth-tabs {
+      display: flex; background: rgba(255,255,255,.04);
+      border-radius: 8px; padding: 3px; margin-bottom: 1.75rem;
+    }
+    .auth-tab {
+      flex: 1; padding: .55rem; border: none; background: none; cursor: pointer;
+      color: var(--muted); font-family: 'Space Mono', monospace; font-size: .8rem;
+      border-radius: 6px; transition: all .2s; font-weight: 700;
+    }
+    .auth-tab.active {
+      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      color: #fff; box-shadow: 0 2px 10px rgba(0,212,255,.3);
+    }
+
+    .auth-field { margin-bottom: 1rem; }
+    .auth-field label {
+      display: block; font-size: .75rem; color: var(--muted);
+      font-family: 'Space Mono', monospace; margin-bottom: .4rem;
+    }
+    .auth-field input {
+      width: 100%; background: rgba(255,255,255,.04);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: .75rem 1rem; color: var(--text);
+      font-family: 'Space Mono', monospace; font-size: .9rem;
+      outline: none; transition: border-color .2s, box-shadow .2s;
+    }
+    .auth-field input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(0,212,255,.1);
+    }
+
+    .auth-btn {
+      width: 100%; padding: .85rem;
+      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      border: none; border-radius: 8px; color: #fff;
+      font-family: 'Space Mono', monospace; font-size: .9rem; font-weight: 700;
+      cursor: pointer; transition: all .2s; margin-top: .5rem;
+      box-shadow: 0 4px 20px rgba(0,212,255,.25);
+    }
+    .auth-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,212,255,.4); }
+    .auth-btn:active { transform: none; }
+
+    .auth-msg {
+      margin-top: .9rem; padding: .65rem 1rem;
+      border-radius: 8px; font-size: .82rem;
+      font-family: 'Space Mono', monospace; display: none;
+    }
+    .auth-msg.error { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.3); color: var(--danger); display: block; }
+    .auth-msg.ok    { background: rgba(16,185,129,.12); border: 1px solid rgba(16,185,129,.3); color: var(--success); display: block; }
+
+    .auth-users-hint {
+      margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--border);
+      font-size: .74rem; color: var(--muted); font-family: 'Space Mono', monospace;
+      text-align: center;
+    }
+
+    /* ── MAIN APP ── */
+    #appScreen { display: none; }
+
+    .wrapper { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+    header {
+      display: flex; align-items: center; gap: 1rem;
+      padding: 2rem 0 3rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2.5rem;
+    }
+    .logo-icon {
+      width: 52px; height: 52px; border-radius: 14px;
+      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.6rem; box-shadow: var(--glow); flex-shrink: 0;
+    }
+    .logo-text h1 { font-size: 1.7rem; font-weight: 800; letter-spacing: -.02em; }
+    .logo-text h1 span { color: var(--accent); }
+    .logo-text p { font-size: .8rem; color: var(--muted); font-family: 'Space Mono', monospace; margin-top: 2px; }
+
+    .header-right { margin-left: auto; display: flex; align-items: center; gap: .75rem; }
+
+    .user-pill {
+      background: rgba(124,58,237,.12);
+      border: 1px solid rgba(124,58,237,.3);
+      color: #a78bfa;
+      font-size: .75rem; font-family: 'Space Mono', monospace;
+      padding: .35rem .85rem; border-radius: 999px;
+      display: flex; align-items: center; gap: .5rem;
+    }
+    .user-pill::before { content: '👤'; font-size: .85rem; }
+
+    .badge {
+      background: rgba(0,212,255,.1);
+      border: 1px solid rgba(0,212,255,.25);
+      color: var(--accent); font-size: .72rem;
+      font-family: 'Space Mono', monospace;
+      padding: .35rem .75rem; border-radius: 999px;
+      display: flex; align-items: center; gap: .4rem;
+    }
+    .badge::before { content: ''; width: 7px; height: 7px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
+
+    .btn-logout {
+      background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.25);
+      color: var(--danger); font-size: .72rem; font-family: 'Space Mono', monospace;
+      padding: .35rem .75rem; border-radius: 999px; cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-logout:hover { background: rgba(239,68,68,.2); }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    .section { margin-bottom: 2rem; }
+    .section-title {
+      font-size: .72rem; font-family: 'Space Mono', monospace;
+      color: var(--accent); letter-spacing: .15em; text-transform: uppercase;
+      margin-bottom: 1rem; display: flex; align-items: center; gap: .6rem;
+    }
+    .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.5rem;
+      transition: border-color .2s;
+    }
+    .card:hover { border-color: rgba(0,212,255,.2); }
+
+    #tokenList { display: flex; flex-direction: column; gap: .75rem; margin-bottom: 1rem; }
+
+    .token-row {
+      display: grid; grid-template-columns: 1fr auto auto;
+      gap: .6rem; align-items: center;
+      background: rgba(255,255,255,.03);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: .75rem 1rem; animation: fadeIn .3s ease;
+    }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+
+    .token-row .token-label {
+      font-size: .72rem; font-family: 'Space Mono', monospace; color: var(--muted);
+      grid-column: 1/-1; margin-bottom: .25rem;
+    }
+    .token-row input {
+      background: transparent; border: none; outline: none;
+      color: var(--text); font-family: 'Space Mono', monospace; font-size: .85rem; width: 100%;
+    }
+    .token-row input::placeholder { color: var(--muted); }
+
+    .status-dot {
+      width: 9px; height: 9px; border-radius: 50%;
+      background: var(--muted); flex-shrink: 0; cursor: pointer;
+      transition: background .3s, box-shadow .3s;
+    }
+    .status-dot.ok       { background: var(--success); box-shadow: 0 0 8px var(--success); }
+    .status-dot.error    { background: var(--danger);  box-shadow: 0 0 8px var(--danger); }
+    .status-dot.checking { background: var(--warn); animation: pulse 1s infinite; }
+
+    .btn-icon {
+      background: none; border: none; cursor: pointer; padding: .25rem;
+      color: var(--muted); transition: color .2s; font-size: 1rem; line-height: 1;
+    }
+    .btn-icon:hover { color: var(--danger); }
+
+    .emoji-grid { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }
+    .emoji-btn {
+      width: 42px; height: 42px; border-radius: 8px;
+      background: rgba(255,255,255,.04); border: 1.5px solid var(--border);
+      cursor: pointer; font-size: 1.2rem;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .15s; user-select: none;
+    }
+    .emoji-btn:hover { border-color: var(--accent); transform: scale(1.15); background: rgba(0,212,255,.08); }
+    .emoji-btn.selected { border-color: var(--accent); background: rgba(0,212,255,.15); box-shadow: 0 0 10px rgba(0,212,255,.3); }
+
+    .field { margin-bottom: 1.25rem; }
+    label { display: block; font-size: .8rem; color: var(--muted); margin-bottom: .4rem; font-family: 'Space Mono', monospace; }
+    input[type="text"], input[type="number"], select {
+      width: 100%; background: rgba(255,255,255,.04);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: .7rem 1rem; color: var(--text);
+      font-family: 'Space Mono', monospace; font-size: .9rem;
+      outline: none; transition: border-color .2s, box-shadow .2s;
+    }
+    input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,212,255,.1); }
+    select option { background: var(--surface); }
+
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; }
+    .toggle-row span { font-size: .9rem; }
+    .toggle { position: relative; width: 46px; height: 26px; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; inset: 0; background: rgba(255,255,255,.1);
+      border-radius: 999px; cursor: pointer; transition: background .3s;
+    }
+    .slider::before {
+      content: ''; position: absolute;
+      width: 20px; height: 20px; background: #fff;
+      border-radius: 50%; left: 3px; top: 3px; transition: transform .3s;
+    }
+    .toggle input:checked + .slider { background: var(--accent); }
+    .toggle input:checked + .slider::before { transform: translateX(20px); }
+
+    /* ── AUTO JOIN TOGGLE ── */
+    .autojoin-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);
+    }
+    .autojoin-row .info { display: flex; flex-direction: column; gap: .15rem; }
+    .autojoin-row .info span { font-size: .9rem; }
+    .autojoin-row .info small { font-size: .72rem; color: var(--muted); font-family: 'Space Mono', monospace; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: .5rem;
+      font-family: 'Space Mono', monospace; font-size: .85rem;
+      padding: .75rem 1.5rem; border-radius: 8px;
+      border: none; cursor: pointer; transition: all .2s; font-weight: 700; letter-spacing: .02em;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      color: #fff; box-shadow: 0 4px 24px rgba(0,212,255,.2);
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,212,255,.35); }
+    .btn-primary:active { transform: none; }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+    .btn-outline { background: transparent; color: var(--accent); border: 1px solid rgba(0,212,255,.35); }
+    .btn-outline:hover { background: rgba(0,212,255,.08); border-color: var(--accent); }
+    .btn-stop { background: rgba(239,68,68,.15); color: var(--danger); border: 1px solid rgba(239,68,68,.35); }
+    .btn-stop:hover { background: rgba(239,68,68,.25); }
+    .btn-row { display: flex; gap: .75rem; flex-wrap: wrap; margin-top: 1.5rem; }
+
+    #logBox {
+      background: #05080d; border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1rem;
+      height: 240px; overflow-y: auto;
+      font-family: 'Space Mono', monospace; font-size: .78rem; line-height: 1.7;
+    }
+    #logBox::-webkit-scrollbar { width: 4px; }
+    #logBox::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    .log-line { display: flex; gap: .75rem; }
+    .log-time  { color: var(--muted); flex-shrink: 0; }
+    .log-info  { color: var(--accent); }
+    .log-ok    { color: var(--success); }
+    .log-error { color: var(--danger); }
+    .log-warn  { color: var(--warn); }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.25rem 1.5rem; text-align: center;
+    }
+    .stat-num { font-size: 2rem; font-weight: 800; line-height: 1; }
+    .stat-label { font-size: .72rem; color: var(--muted); font-family: 'Space Mono', monospace; margin-top: .35rem; }
+    .c-cyan { color: var(--accent); } .c-purple { color: var(--accent2); } .c-green { color: var(--success); }
+
+    #addTokenBtn {
+      width: 100%; border: 1.5px dashed var(--border);
+      background: transparent; color: var(--muted);
+      border-radius: 8px; padding: .65rem;
+      font-family: 'Space Mono', monospace; font-size: .82rem;
+      cursor: pointer; transition: all .2s;
+    }
+    #addTokenBtn:hover { border-color: var(--accent); color: var(--accent); background: rgba(0,212,255,.04); }
+
+    .progress-bar { height: 4px; background: var(--border); border-radius: 999px; overflow: hidden; margin-top: 1rem; }
+    .progress-fill {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, var(--accent2), var(--accent));
+      transition: width .4s ease; border-radius: 999px;
+    }
+
+    .vercel-note {
+      display: flex; align-items: center; gap: .75rem;
+      background: rgba(124,58,237,.08); border: 1px solid rgba(124,58,237,.2);
+      border-radius: var(--radius); padding: 1rem 1.25rem; margin-top: 1rem;
+      font-size: .82rem; color: #a78bfa;
+    }
+    .vercel-note .icon { font-size: 1.2rem; flex-shrink: 0; }
+
+    @media(max-width: 600px) {
+      .row2 { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: 1fr; }
+      header { flex-wrap: wrap; }
+      .header-right { flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+  <div class="orb orb1"></div>
+  <div class="orb orb2"></div>
+
+  <!-- ── AUTH SCREEN ── -->
+  <div id="authScreen">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div class="auth-logo-icon">⚡</div>
+        <div>
+          <h1>TG <span>AutoReact</span></h1>
+          <p>// telegram reaction bot</p>
+        </div>
+      </div>
+
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tabLogin" onclick="switchTab('login')">LOGIN</button>
+        <button class="auth-tab" id="tabSignup" onclick="switchTab('signup')">SIGN UP</button>
+      </div>
+
+      <!-- Login -->
+      <div id="loginForm">
+        <div class="auth-field">
+          <label>USERNAME</label>
+          <input type="text" id="loginUser" placeholder="your_username" autocomplete="username" />
+        </div>
+        <div class="auth-field">
+          <label>PASSWORD</label>
+          <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()" />
+        </div>
+        <button class="auth-btn" onclick="doLogin()">▶ LOGIN</button>
+        <div class="auth-msg" id="loginMsg"></div>
+      </div>
+
+      <!-- Sign Up -->
+      <div id="signupForm" style="display:none;">
+        <div class="auth-field">
+          <label>USERNAME</label>
+          <input type="text" id="signupUser" placeholder="choose_username" autocomplete="username" />
+        </div>
+        <div class="auth-field">
+          <label>PASSWORD</label>
+          <input type="password" id="signupPass" placeholder="min 6 characters" autocomplete="new-password" />
+        </div>
+        <div class="auth-field">
+          <label>CONFIRM PASSWORD</label>
+          <input type="password" id="signupPass2" placeholder="repeat password" autocomplete="new-password" onkeydown="if(event.key==='Enter')doSignup()" />
+        </div>
+        <button class="auth-btn" onclick="doSignup()">✦ CREATE ACCOUNT</button>
+        <div class="auth-msg" id="signupMsg"></div>
+      </div>
+
+      <div class="auth-users-hint" id="usersHint"></div>
+    </div>
+  </div>
+
+  <!-- ── MAIN APP ── -->
+  <div id="appScreen">
+    <div class="wrapper">
+
+      <header>
+        <div class="logo-icon">⚡</div>
+        <div class="logo-text">
+          <h1>TG <span>AutoReact</span></h1>
+          <p>// telegram reaction bot dashboard</p>
+        </div>
+        <div class="header-right">
+          <div class="user-pill" id="userPill"></div>
+          <div class="badge">LIVE</div>
+          <button class="btn-logout" onclick="doLogout()">LOGOUT</button>
+        </div>
+      </header>
+
+      <!-- STATS -->
+      <div class="section">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-num c-cyan" id="statBots">0</div>
+            <div class="stat-label">ACTIVE BOTS</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num c-purple" id="statReactions">0</div>
+            <div class="stat-label">REACTIONS SENT</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num c-green" id="statMessages">0</div>
+            <div class="stat-label">MESSAGES SEEN</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BOT TOKENS -->
+      <div class="section">
+        <div class="section-title">Bot Tokens</div>
+        <div class="card">
+          <div id="tokenList"></div>
+          <button id="addTokenBtn" onclick="addToken()">＋ Add Another Bot Token</button>
+          <div class="vercel-note">
+            <span class="icon">▲</span>
+            <span>Your tokens are saved per account in your browser. Each user's data is completely separate.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- REACTION SETTINGS -->
+      <div class="section">
+        <div class="section-title">Reaction Settings</div>
+        <div class="card">
+          <label style="margin-bottom:.6rem; display:block;">Select Reactions to Send</label>
+          <div class="emoji-grid" id="emojiGrid"></div>
+
+          <div style="margin-top:1.5rem;" class="row2">
+            <div class="field">
+              <label>Channel / Group Username</label>
+              <input type="text" id="chatId" placeholder="@channelname or -100xxxxx" oninput="saveToStorage()" />
+            </div>
+            <div class="field">
+              <label>Reaction Mode</label>
+              <select id="reactionMode" onchange="saveToStorage()">
+                <option value="random">Random from selected</option>
+                <option value="all">All selected at once</option>
+                <option value="first">First selected only</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row2">
+            <div class="field">
+              <label>Delay Between Reactions (ms)</label>
+              <input type="number" id="delay" value="1200" min="500" max="30000" oninput="saveToStorage()" />
+            </div>
+            <div class="field">
+              <label>Polling Interval (seconds)</label>
+              <input type="number" id="pollInterval" value="5" min="2" max="60" oninput="saveToStorage()" />
+            </div>
+          </div>
+
+          <div class="toggle-row">
+            <span>React to all new messages automatically</span>
+            <label class="toggle">
+              <input type="checkbox" id="autoToggle" checked onchange="saveToStorage()" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- AUTO JOIN -->
+          <div class="autojoin-row">
+            <div class="info">
+              <span>Auto-join bots to channel</span>
+              <small>Bots will joinChat before starting if not already members</small>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="autoJoinToggle" checked onchange="saveToStorage()" />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONTROLS -->
+      <div class="section">
+        <div class="section-title">Controls</div>
+        <div class="card">
+          <div class="btn-row">
+            <button class="btn btn-primary" id="startBtn" onclick="startBot()">▶ Start Bot</button>
+            <button class="btn btn-stop" id="stopBtn" onclick="stopBot()" disabled>■ Stop</button>
+            <button class="btn btn-outline" onclick="testTokens()">⟳ Validate Tokens</button>
+            <button class="btn btn-outline" onclick="clearLog()">✕ Clear Log</button>
+          </div>
+          <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        </div>
+      </div>
+
+      <!-- LOG -->
+      <div class="section">
+        <div class="section-title">Live Console</div>
+        <div id="logBox"><div class="log-line"><span class="log-time">00:00:00</span><span class="log-info">// System ready. Configure tokens and press Start Bot.</span></div></div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
