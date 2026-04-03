@@ -11,24 +11,40 @@ const ALLOWED_METHODS = [
   'getChatMemberCount',
   'forwardMessage',
   'copyMessage',
-  'joinChat',
-  'leaveChat',
+  'joinChat',                 // allows bot to join public channels/groups via username
+  'exportChatInviteLink',     // generate an invite link (useful for private channels)
 ];
 
 export default async function handler(req, res) {
+  // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method === 'OPTIONS') return res.status(204).end();
-  if (req.method !== 'POST') return res.status(405).json({ ok: false, description: 'Method not allowed' });
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ ok: false, description: 'Method not allowed' });
+  }
 
   const { token, method, params } = req.body || {};
 
-  if (!token || !method) return res.status(400).json({ ok: false, description: 'token and method are required' });
-  if (!/^\d{8,12}:[A-Za-z0-9_\-]{35}$/.test(token)) return res.status(400).json({ ok: false, description: 'Invalid token format' });
-  if (!ALLOWED_METHODS.includes(method)) return res.status(403).json({ ok: false, description: `Method '${method}' is not permitted` });
+  // Validate token and method
+  if (!token || !method) {
+    return res.status(400).json({ ok: false, description: 'token and method are required' });
+  }
 
+  if (!/^\d{8,12}:[A-Za-z0-9_\-]{35}$/.test(token)) {
+    return res.status(400).json({ ok: false, description: 'Invalid token format' });
+  }
+
+  if (!ALLOWED_METHODS.includes(method)) {
+    return res.status(403).json({ ok: false, description: `Method '${method}' is not permitted` });
+  }
+
+  // Forward to Telegram
   try {
     const url = `https://api.telegram.org/bot${token}/${method}`;
     const response = await fetch(url, {
@@ -36,6 +52,7 @@ export default async function handler(req, res) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params || {}),
     });
+
     const data = await response.json();
     return res.status(response.status).json(data);
   } catch (err) {
